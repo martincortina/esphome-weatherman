@@ -4,6 +4,14 @@ A French-language weather display for an **ESP32 and Waveshare 7.5-inch V2 monoc
 
 The portrait layout shows the date, current weather, temperature, humidity, wind, the next three days, sunrise, sunset and moon phase. Small text uses bold Inter fonts for readability. A separator sits above the larger last-update time.
 
+## Preview
+
+<p align="center">
+  <img src="docs/images/weatherman-preview.png" alt="Weatherman portrait weather display with bold text, three-day forecasts, sunrise, sunset and moon phase" width="480">
+</p>
+
+Rendered example with sample readings, using the configured font sizes and bold weights. The original frame margins are included; the physical e-paper panel may look slightly different.
+
 ## Hardware and layout
 
 - ESP32 development board, Arduino framework.
