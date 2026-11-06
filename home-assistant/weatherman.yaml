@@ -1,0 +1,110 @@
+input_boolean:
+  weatherman_auto_refresh:
+    name: Weatherman Auto Refresh
+template:
+- sensor:
+  - name: Weatherman Main Temperature
+    unique_id: weatherman_main_temperature
+    unit_of_measurement: °C
+    device_class: temperature
+    availability: "{{ is_number(state_attr('weather.home', 'temperature')) }}"
+    state: "{{ state_attr('weather.home', 'temperature') }}"
+  - name: Weatherman Humidity
+    unique_id: weatherman_humidity
+    unit_of_measurement: '%'
+    device_class: humidity
+    availability: "{{ is_number(state_attr('weather.home', 'humidity')) }}"
+    state: "{{ state_attr('weather.home', 'humidity') }}"
+  - name: Weatherman Wind Speed
+    unique_id: weatherman_wind_speed
+    unit_of_measurement: km/h
+    availability: "{{ is_number(state_attr('weather.home', 'wind_speed')) }}"
+    state: "{{ state_attr('weather.home', 'wind_speed') }}"
+  - name: Weatherman Condition Code
+    unique_id: weatherman_condition_code
+    state: "{{ {'clear-night': 1, 'sunny': 2, 'partlycloudy': 3, 'cloudy': 4, 'overcast': 5, 'fog': 6, 'rainy':
+      7, 'pouring': 8, 'lightning': 9, 'lightning-rainy': 10, 'snowy': 11, 'snowy-rainy': 12, 'hail': 13, 'windy':
+      14, 'windy-variant': 15, 'exceptional': 99}.get(states('weather.home'), 0) }}"
+  - name: Weatherman Moon Code
+    unique_id: weatherman_moon_code
+    state: "{{ {'new_moon': 1, 'waxing_crescent': 2, 'first_quarter': 3, 'waxing_gibbous': 4, 'full_moon': 5, 'waning_gibbous':
+      6, 'last_quarter': 7, 'waning_crescent': 8}.get(states('sensor.moon_phase'), 0) }}"
+  - name: Sunrise Timestamp
+    unique_id: weatherman_sunrise_timestamp
+    unit_of_measurement: s
+    state: "{{ as_timestamp(state_attr('sun.sun', 'next_rising'), 0) | int }}"
+  - name: Sunset Timestamp
+    unique_id: weatherman_sunset_timestamp
+    unit_of_measurement: s
+    state: "{{ as_timestamp(state_attr('sun.sun', 'next_setting'), 0) | int }}"
+automation:
+- id: weatherman_daily_forecast_feed
+  alias: Weatherman - Previsions quotidiennes
+  description: Transmet les trois prochains jours a Weatherman apres installation du nouveau firmware. Ne 
+    rafraichit pas l'ecran.
+  mode: single
+  triggers:
+  - trigger: time_pattern
+    minutes: /30
+  - trigger: homeassistant
+    event: start
+  - trigger: state
+    entity_id: binary_sensor.weatherman_status
+    to: "on"
+  - trigger: event
+    event_type: service_registered
+    event_data:
+      domain: esphome
+      service: weatherman_forecast_update
+  conditions:
+  - condition: state
+    entity_id: binary_sensor.weatherman_status
+    state: "on"
+  actions:
+  - delay: 00:00:02
+  - action: weather.get_forecasts
+    target:
+      entity_id: weather.home
+    data:
+      type: daily
+    response_variable: daily
+  - variables:
+      days: |-
+        {% set ns = namespace(items=[]) %}
+        {% for f in daily['weather.home']['forecast'] %}
+          {% if as_local(as_datetime(f.datetime)).date() > now().date() %}
+            {% set ns.items = ns.items + [f] %}
+          {% endif %}
+        {% endfor %}
+        {{ ns.items[:3] }}
+  - condition: template
+    value_template: '{{ days | count >= 3 }}'
+  - action: esphome.weatherman_forecast_update
+    data:
+      day_1_ts: '{{ as_timestamp(days[0].datetime) | int }}'
+      day_1_condition: "{{ days[0].get('condition', '') }}"
+      day_1_high: "{{ days[0].get('temperature') | float(999) }}"
+      day_1_low: "{{ days[0].get('templow') | float(999) }}"
+      day_2_ts: '{{ as_timestamp(days[1].datetime) | int }}'
+      day_2_condition: "{{ days[1].get('condition', '') }}"
+      day_2_high: "{{ days[1].get('temperature') | float(999) }}"
+      day_2_low: "{{ days[1].get('templow') | float(999) }}"
+      day_3_ts: '{{ as_timestamp(days[2].datetime) | int }}'
+      day_3_condition: "{{ days[2].get('condition', '') }}"
+      day_3_high: "{{ days[2].get('temperature') | float(999) }}"
+      day_3_low: "{{ days[2].get('templow') | float(999) }}"
+- id: weatherman_regular_display_refresh
+  alias: Weatherman - Display refresh
+  description: Refresh two minutes after the half-hourly forecast feed. Adjust the interval for your panel.
+  mode: single
+  triggers:
+  - trigger: time_pattern
+    minutes: 2,32
+  conditions:
+  - condition: state
+    entity_id: binary_sensor.weatherman_status
+    state: "on"
+  actions:
+  - action: button.press
+    target:
+      entity_id: button.weatherman_refresh_display

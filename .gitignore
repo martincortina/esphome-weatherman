@@ -1,0 +1,11 @@
+**/secrets.yaml
+**/.esphome/
+**/fonts/*.ttf
+**/fonts/LICENSE-MDI.txt
+**/__pycache__/
+*.pyc
+*.bin
+*.elf
+*.bak
+.env
+.venv/

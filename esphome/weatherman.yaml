@@ -1,0 +1,513 @@
+esphome:
+  name: weatherman
+  friendly_name: Weatherman
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+logger:
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+  actions:
+  - action: forecast_update
+    variables:
+      day_1_ts: int
+      day_1_condition: string
+      day_1_high: float
+      day_1_low: float
+      day_2_ts: int
+      day_2_condition: string
+      day_2_high: float
+      day_2_low: float
+      day_3_ts: int
+      day_3_condition: string
+      day_3_high: float
+      day_3_low: float
+    then:
+    - lambda: |-
+        auto valid_temperature = [](float value) -> float {
+          return std::isfinite(value) && value >= -100 && value <= 100 ? value : NAN;
+        };
+        id(forecast_dates) = {day_1_ts, day_2_ts, day_3_ts};
+        id(forecast_conditions) = {day_1_condition, day_2_condition, day_3_condition};
+        id(forecast_highs) = {valid_temperature(day_1_high), valid_temperature(day_2_high), valid_temperature(day_3_high)};
+        id(forecast_lows) = {valid_temperature(day_1_low), valid_temperature(day_2_low), valid_temperature(day_3_low)};
+        id(forecast_received_ms) = millis();
+        ESP_LOGD("forecast", "Daily forecast received; next scheduled refresh will display it");
+ota:
+- platform: esphome
+  password: !secret ota_password
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+globals:
+- id: refresh_count
+  type: int
+  restore_value: yes
+  initial_value: '0'
+
+- id: forecast_dates
+  type: std::array<int, 3>
+  restore_value: false
+  initial_value: '{0, 0, 0}'
+- id: forecast_conditions
+  type: std::array<std::string, 3>
+  restore_value: false
+  initial_value: '{"", "", ""}'
+- id: forecast_highs
+  type: std::array<float, 3>
+  restore_value: false
+  initial_value: '{NAN, NAN, NAN}'
+- id: forecast_lows
+  type: std::array<float, 3>
+  restore_value: false
+  initial_value: '{NAN, NAN, NAN}'
+- id: forecast_received_ms
+  type: uint32_t
+  restore_value: false
+  initial_value: '0'
+font:
+- file: gfonts://Inter@800
+  id: big
+  size: 80
+  glyphs:
+  - " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~Ééèêûàùâçôîïë°"
+- file: gfonts://Inter@800
+  id: temperature_fallback
+  size: 48
+  glyphs:
+  - " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~Ééèêûàùâçôîïë°"
+- file: gfonts://Inter@600
+  id: header_font
+  size: 36
+  glyphs:
+  - " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~Ééèêûàùâçôîïë°"
+- file: gfonts://Inter@700
+  id: small
+  size: 22
+  glyphs:
+  - " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~Ééèêûàùâçôîïë°"
+- file: gfonts://Inter@700
+  id: tiny
+  size: 16
+  glyphs:
+  - " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~Ééèêûàùâçôîïë°"
+- file: gfonts://Inter@700
+  id: label_font
+  size: 14
+  glyphs:
+  - " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~Ééèêûàùâçôîïë°"
+- file: gfonts://Inter@600
+  id: metric_font
+  size: 28
+  glyphs:
+  - " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~Ééèêûàùâçôîïë°"
+- file: gfonts://Inter@700
+  id: footer_font
+  size: 20
+  glyphs:
+  - " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~Ééèêûàùâçôîïë°"
+- file: gfonts://Inter@700
+  id: forecast_font
+  size: 24
+  glyphs:
+  - " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~Ééèêûàùâçôîïë°"
+- file: gfonts://Inter@700
+  id: unit_font
+  size: 32
+  glyphs:
+  - " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~Ééèêûàùâçôîïë°"
+- file: fonts/materialdesignicons-webfont.ttf
+  id: icon_font
+  size: 96
+  glyphs:
+  - 󰖔
+  - 󰖙
+  - 󰖕
+  - 󰖐
+  - 󰖑
+  - 󰖗
+  - 󰖖
+  - 󰖓
+  - 󰙾
+  - 󰖘
+  - 󰙿
+  - 󰖒
+  - 󰖝
+  - 󰖞
+  - 󰼷
+- file: fonts/materialdesignicons-webfont.ttf
+  id: icon_forecast
+  size: 40
+  glyphs:
+  - 󰖔
+  - 󰖙
+  - 󰖕
+  - 󰖐
+  - 󰖑
+  - 󰖗
+  - 󰖖
+  - 󰖓
+  - 󰙾
+  - 󰖘
+  - 󰙿
+  - 󰖒
+  - 󰖝
+  - 󰖞
+  - 󰼷
+- file: fonts/materialdesignicons-webfont.ttf
+  id: icon_font_small
+  size: 24
+  glyphs:
+  - 󰖜
+  - 󰖛
+  - 󰖝
+  - 󰖎
+  - 󰽡
+  - 󰽢
+  - 󰽣
+  - 󰽤
+  - 󰽥
+  - 󰽦
+  - 󰽧
+  - 󰽨
+button:
+- platform: template
+  name: Refresh Display
+  entity_category: config
+  on_press:
+  - logger.log: Manual refresh
+  - lambda: |-
+      id(refresh_count)++;
+      id(refresh_count_sensor).update();
+      id(epaper_display).update();
+
+# Auto Refresh
+binary_sensor:
+- platform: homeassistant
+  id: ha_refresh_request
+  entity_id: input_boolean.weatherman_auto_refresh
+  internal: true
+  on_press:
+    then:
+    - logger.log: Auto refresh
+    - lambda: |-
+        id(refresh_count)++;
+        id(refresh_count_sensor).update();
+        id(epaper_display).update();
+
+- platform: status
+  name: Status
+  id: weatherman_status
+  entity_category: diagnostic
+sensor:
+- platform: template
+  id: refresh_count_sensor
+  name: Weatherman Refresh Display Writes
+  unit_of_measurement: refreshes
+  accuracy_decimals: 0
+  update_interval: never
+  lambda: |-
+    return (float) id(refresh_count);
+
+- platform: homeassistant
+  id: ha_moon_code
+  entity_id: sensor.weatherman_moon_code
+  internal: true
+
+- platform: homeassistant
+  id: ha_sunrise_ts
+  entity_id: sensor.sunrise_timestamp
+  internal: true
+
+- platform: homeassistant
+  id: ha_sunset_ts
+  entity_id: sensor.sunset_timestamp
+  internal: true
+
+- platform: homeassistant
+  id: ha_main_temperature
+  entity_id: sensor.weatherman_main_temperature
+  internal: true
+
+- platform: homeassistant
+  id: ha_condition_code
+  entity_id: sensor.weatherman_condition_code
+  internal: true
+
+- platform: homeassistant
+  id: ha_wind_speed
+  entity_id: sensor.weatherman_wind_speed
+  internal: true
+
+- platform: homeassistant
+  id: ha_humidity
+  entity_id: sensor.weatherman_humidity
+  internal: true
+
+time:
+- platform: sntp
+  id: ha_time
+  timezone: Europe/Brussels
+  servers:
+  - !secret ntp_server
+  on_time_sync:
+    then:
+    - logger.log: Synchronized system clock via NTP
+
+# Define colors
+# This design is white on black so this is necessary.
+color:
+- id: color_black
+  hex: FFFFFF
+- id: color_white
+  hex: '000000'
+
+# Pins for Waveshare ePaper ESP Board
+spi:
+  clk_pin: 13
+  mosi_pin: 14
+
+# Now render everything on the ePaper screen.
+display:
+- platform: waveshare_epaper
+  id: epaper_display
+  cs_pin: 15
+  dc_pin: 27
+  busy_pin:
+    number: 25
+    inverted: true
+  reset_pin: 26
+  model: 7.50inV2
+  reset_duration: 200ms
+  rotation: 270°
+  auto_clear_enabled: false
+  update_interval: never
+  lambda: |
+    // Weatherman portrait layout, 480 x 800. Keep the original frame clear.
+    const int w = it.get_width();
+    const int h = it.get_height();
+    const int mx = 20;
+    const int mt = 62;
+    const int mb = 57;
+    const int x0 = mx;
+    const int x1 = w - mx;
+    const int y0 = mt;
+    const int y1 = h - mb;
+    const int left = x0 + 12;
+    const int right = x1 - 12;
+    const int content_w = right - left;
+    auto now = id(ha_time).now();
+    it.fill(color_white);
+    it.start_clipping(x0, y0, x1, y1);
+
+    // Fit the complete font box before printing; no text may extend into the frame.
+    auto fit = [&](int bx, int by, int bw, int bh, display::BaseFont *first,
+                   display::BaseFont *fallback, int align, const char *text) -> bool {
+      display::BaseFont *fonts[] = {first, fallback};
+      const auto alignment = align == 1 ? TextAlign::TOP_CENTER :
+                             align == 2 ? TextAlign::TOP_RIGHT : TextAlign::TOP_LEFT;
+      const int anchor_x = align == 1 ? bx + bw / 2 : align == 2 ? bx + bw : bx;
+      for (auto *font : fonts) {
+        int tx, ty, tw, th;
+        it.get_text_bounds(anchor_x, by, text, font, alignment, &tx, &ty, &tw, &th);
+        if (tx >= bx && ty >= by && tx + tw <= bx + bw && ty + th <= by + bh) {
+          it.print(anchor_x, by, font, color_black, alignment, text);
+          return true;
+        }
+      }
+      return false;
+    };
+    auto rule = [&](int y, int thickness) {
+      for (int i = 0; i < thickness; i++) it.line(left, y + i, right - 1, y + i, color_black);
+    };
+    auto weather_icon = [](int code) -> const char * {
+      switch (code) {
+        case 1: return "\U000F0594";
+        case 2: return "\U000F0599";
+        case 3: return "\U000F0595";
+        case 4: case 5: return "\U000F0590";
+        case 6: return "\U000F0591";
+        case 7: return "\U000F0597";
+        case 8: return "\U000F0596";
+        case 9: return "\U000F0593";
+        case 10: return "\U000F067E";
+        case 11: return "\U000F0598";
+        case 12: return "\U000F067F";
+        case 13: return "\U000F0592";
+        case 14: return "\U000F059D";
+        case 15: return "\U000F059E";
+        case 99: return "\U000F0F37";
+        default: return "\U000F0595";
+      }
+    };
+    auto condition_label = [](int code) -> const char * {
+      switch (code) {
+        case 1: return "Nuit claire";
+        case 2: return "Ensoleillé";
+        case 3: return "Éclaircies";
+        case 4: case 5: return "Nuageux";
+        case 6: return "Brouillard";
+        case 7: return "Pluie";
+        case 8: return "Forte pluie";
+        case 9: return "Orages";
+        case 10: return "Pluie et orages";
+        case 11: return "Neige";
+        case 12: return "Pluie et neige";
+        case 13: return "Grêle";
+        case 14: case 15: return "Venteux";
+        case 99: return "Exceptionnel";
+        default: return "Indisponible";
+      }
+    };
+    auto forecast_code = [](const std::string &condition) -> int {
+      const char *names[] = {"", "clear-night", "sunny", "partlycloudy", "cloudy", "overcast",
+        "fog", "rainy", "pouring", "lightning", "lightning-rainy", "snowy", "snowy-rainy",
+        "hail", "windy", "windy-variant"};
+      for (int i = 1; i <= 15; i++) if (condition == names[i]) return i;
+      return condition == "exceptional" ? 99 : 0;
+    };
+
+    const char *days[] = {"Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"};
+    const char *months[] = {"janvier", "février", "mars", "avril", "mai", "juin", "juillet",
+                           "août", "septembre", "octobre", "novembre", "décembre"};
+    char date[48] = "-- --------";
+    char year[8] = "----";
+    const char *weekday = "--";
+    if (now.is_valid()) {
+      weekday = days[now.day_of_week - 1];
+      snprintf(date, sizeof(date), "%d %s", now.day_of_month, months[now.month - 1]);
+      snprintf(year, sizeof(year), "%04d", now.year);
+    }
+    fit(left, y0 + 10, 240, 22, id(label_font), id(tiny), 0, weekday);
+    fit(right - 80, y0 + 10, 80, 22, id(label_font), id(tiny), 2, year);
+    fit(left, y0 + 34, content_w, 48, id(header_font), id(small), 0, date);
+    rule(y0 + 86, 2);
+
+    int c = std::isfinite(id(ha_condition_code).state) ? (int) std::lround(id(ha_condition_code).state) : 0;
+    fit(left, y0 + 118, 116, 120, id(icon_font), id(icon_forecast), 1, weather_icon(c));
+    char temperature[20] = "--.-";
+    if (std::isfinite(id(ha_main_temperature).state) && id(ha_main_temperature).state >= -80 &&
+        id(ha_main_temperature).state <= 70) {
+      snprintf(temperature, sizeof(temperature), "%.1f", id(ha_main_temperature).state);
+    }
+    const int temperature_x = left + 136;
+    const int temperature_w = right - temperature_x;
+    display::BaseFont *temperature_fonts[] = {id(big), id(temperature_fallback)};
+    bool temperature_drawn = false;
+    for (auto *font : temperature_fonts) {
+      int tx, ty, tw, th, ux, uy, uw, uh;
+      it.get_text_bounds(0, 0, temperature, font, TextAlign::TOP_LEFT, &tx, &ty, &tw, &th);
+      it.get_text_bounds(0, 0, "°C", id(unit_font), TextAlign::TOP_LEFT, &ux, &uy, &uw, &uh);
+      if (tw + uw + 6 <= temperature_w && th <= 102 && uh <= 70) {
+        temperature_drawn = fit(temperature_x, y0 + 118, tw + 1, 102, font, font, 0, temperature);
+        fit(temperature_x + tw + 6, y0 + 130, uw + 1, 70, id(unit_font), id(tiny), 0, "°C");
+        break;
+      }
+    }
+    if (!temperature_drawn) fit(temperature_x, y0 + 118, temperature_w, 102, id(small), id(tiny), 0, "--.-°C");
+    fit(temperature_x, y0 + 224, temperature_w, 30, id(small), id(tiny), 0, condition_label(c));
+
+    const int metric_y = y0 + 254;
+    const int half = content_w / 2;
+    it.line(left + half, metric_y, left + half, metric_y + 62, color_black);
+    fit(left, metric_y, 24, 28, id(icon_font_small), id(icon_font_small), 0, "\U000F059D");
+    fit(left + 32, metric_y + 2, half - 40, 22, id(label_font), id(tiny), 0, "VENT");
+    fit(left + half + 20, metric_y, 24, 28, id(icon_font_small), id(icon_font_small), 0, "\U000F058E");
+    fit(left + half + 52, metric_y + 2, half - 60, 22, id(label_font), id(tiny), 0, "HUMIDITÉ");
+    char wind[24] = "-- km/h";
+    char humidity[16] = "-- %";
+    if (std::isfinite(id(ha_wind_speed).state) && id(ha_wind_speed).state >= 0 && id(ha_wind_speed).state < 500)
+      snprintf(wind, sizeof(wind), "%.0f km/h", id(ha_wind_speed).state);
+    if (std::isfinite(id(ha_humidity).state) && id(ha_humidity).state >= 0 && id(ha_humidity).state <= 100)
+      snprintf(humidity, sizeof(humidity), "%.0f %%", id(ha_humidity).state);
+    fit(left, metric_y + 30, half - 12, 38, id(metric_font), id(small), 0, wind);
+    fit(left + half + 20, metric_y + 30, half - 20, 38, id(metric_font), id(small), 0, humidity);
+    rule(y0 + 326, 1);
+    fit(left, y0 + 354, content_w, 24, id(label_font), id(tiny), 0, "LES PROCHAINS JOURS");
+
+    const bool forecast_fresh = id(forecast_received_ms) != 0 &&
+                               (uint32_t)(millis() - id(forecast_received_ms)) < 21600000UL;
+    const int column_w = content_w / 3;
+    for (int i = 0; i < 3; i++) {
+      const int bx = left + i * column_w;
+      const int bw = i == 2 ? right - bx : column_w;
+      bool valid = false;
+      struct tm day_tm{};
+      if (forecast_fresh && now.is_valid() && id(forecast_dates)[i] > 0) {
+        time_t timestamp = (time_t) id(forecast_dates)[i];
+        localtime_r(&timestamp, &day_tm);
+        int day_key = (day_tm.tm_year + 1900) * 10000 + (day_tm.tm_mon + 1) * 100 + day_tm.tm_mday;
+        int today_key = now.year * 10000 + now.month * 100 + now.day_of_month;
+        valid = day_key > today_key;
+      }
+      if (i > 0) it.line(bx, y0 + 394, bx, y0 + 510, color_black);
+      fit(bx + 6, y0 + 394, bw - 12, 24, id(tiny), id(label_font), 1, valid ? days[day_tm.tm_wday] : "--");
+      if (valid) fit(bx + 6, y0 + 424, bw - 12, 54, id(icon_forecast), id(icon_font_small), 1,
+                     weather_icon(forecast_code(id(forecast_conditions)[i])));
+      else fit(bx + 6, y0 + 434, bw - 12, 32, id(small), id(tiny), 1, "--");
+      char high[16] = "--°";
+      char low[16] = "--°";
+      if (valid && std::isfinite(id(forecast_highs)[i])) snprintf(high, sizeof(high), "%.0f°", id(forecast_highs)[i]);
+      if (valid && std::isfinite(id(forecast_lows)[i])) snprintf(low, sizeof(low), "%.0f°", id(forecast_lows)[i]);
+      fit(bx + 6, y0 + 486, (bw - 12) / 2, 36, id(forecast_font), id(tiny), 2, high);
+      fit(bx + bw / 2 + 6, y0 + 492, bw / 2 - 12, 28, id(tiny), id(label_font), 0, low);
+    }
+    rule(y0 + 530, 1);
+
+    char sunrise[8] = "--:--";
+    char sunset[8] = "--:--";
+    auto format_sun = [](float value, char *out, size_t length) {
+      if (std::isfinite(value) && value > 0) {
+        time_t timestamp = (time_t) value;
+        struct tm t{};
+        localtime_r(&timestamp, &t);
+        snprintf(out, length, "%02d:%02d", t.tm_hour, t.tm_min);
+      }
+    };
+    format_sun(id(ha_sunrise_ts).state, sunrise, sizeof(sunrise));
+    format_sun(id(ha_sunset_ts).state, sunset, sizeof(sunset));
+    const char *moon_icon = "\U000F0F65";
+    const char *moon_1 = "--";
+    const char *moon_2 = "";
+    int moon = std::isfinite(id(ha_moon_code).state) ? (int) std::lround(id(ha_moon_code).state) : 0;
+    switch (moon) {
+      case 1: moon_icon = "\U000F0F61"; moon_1 = "Nouvelle"; moon_2 = "lune"; break;
+      case 2: moon_icon = "\U000F0F62"; moon_1 = "Premier"; moon_2 = "croissant"; break;
+      case 3: moon_icon = "\U000F0F63"; moon_1 = "Premier"; moon_2 = "quartier"; break;
+      case 4: moon_icon = "\U000F0F64"; moon_1 = "Gibbeuse"; moon_2 = "croissante"; break;
+      case 5: moon_icon = "\U000F0F65"; moon_1 = "Pleine"; moon_2 = "lune"; break;
+      case 6: moon_icon = "\U000F0F66"; moon_1 = "Gibbeuse"; moon_2 = "décroissante"; break;
+      case 7: moon_icon = "\U000F0F67"; moon_1 = "Dernier"; moon_2 = "quartier"; break;
+      case 8: moon_icon = "\U000F0F68"; moon_1 = "Dernier"; moon_2 = "croissant"; break;
+    }
+    const char *astro_icons[] = {"\U000F059C", "\U000F059B", moon_icon};
+    const char *astro_labels[] = {"Lever", "Coucher", "Lune"};
+    for (int i = 0; i < 3; i++) {
+      const int bx = left + i * column_w + 6;
+      const int bw = (i == 2 ? right - (bx - 6) : column_w) - 12;
+      fit(bx, y0 + 548, bw, 30, id(icon_font_small), id(icon_font_small), 1, astro_icons[i]);
+      fit(bx, y0 + 580, bw, 22, id(label_font), id(tiny), 1, astro_labels[i]);
+      if (i < 2) fit(bx, y0 + 604, bw, 32, id(footer_font), id(tiny), 1, i == 0 ? sunrise : sunset);
+      else {
+        char phase[64];
+        snprintf(phase, sizeof(phase), "%s%s%s", moon_1, moon_2[0] ? " " : "", moon_2);
+        if (!fit(bx, y0 + 604, bw, 32, id(tiny), id(tiny), 1, phase)) {
+          fit(bx, y0 + 600, bw, 20, id(tiny), id(label_font), 1, moon_1);
+          fit(bx, y0 + 618, bw, 20, id(tiny), id(label_font), 1, moon_2);
+        }
+      }
+    }
+
+    // Original footer anchor: y1 - 30. The larger fonts remain inside y1.
+    const int footer_y = y1 - 30;
+    for (int i = 0; i < 2; i++) it.line(x0, footer_y - 10 + i, x1 - 1, footer_y - 10 + i, color_black);
+    fit(left, footer_y, content_w - 90, y1 - footer_y, id(footer_font), id(tiny), 0, "Dernière mise à jour");
+    char updated[8] = "--:--";
+    if (now.is_valid()) snprintf(updated, sizeof(updated), "%02d:%02d", now.hour, now.minute);
+    fit(right - 84, footer_y, 84, y1 - footer_y, id(small), id(footer_font), 2, updated);
+    it.end_clipping();
